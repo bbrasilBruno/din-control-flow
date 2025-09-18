@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Wallet, Calendar, TrendingUp, BarChart3 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { isSameMonth, isBefore, format } from "date-fns";
+import { isSameMonth, isBefore, isFuture, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 const Index = () => {
@@ -75,12 +75,28 @@ const Index = () => {
   // Calculate totals for selected month
   const selectedMonth = selectedDate.getMonth();
   const selectedYear = selectedDate.getFullYear();
+  const isFutureMonth = isFuture(selectedDate) && !isSameMonth(selectedDate, new Date());
   
-  const monthlyTransactions = transactions.filter(t => {
+  // Generate recurring transactions for future months
+  const generateRecurringTransactions = (): Transaction[] => {
+    if (!isFutureMonth) return [];
+    
+    return recurringTransactions.map(transaction => ({
+      ...transaction,
+      id: `recurring-${transaction.id}-${selectedYear}-${selectedMonth}`,
+      date: new Date(selectedYear, selectedMonth, new Date(transaction.date).getDate()).toISOString(),
+    }));
+  };
+  
+  const realMonthTransactions = transactions.filter(t => {
     const transactionDate = new Date(t.date);
     return transactionDate.getMonth() === selectedMonth && 
            transactionDate.getFullYear() === selectedYear;
   });
+  
+  const monthlyTransactions = isFutureMonth 
+    ? [...realMonthTransactions, ...generateRecurringTransactions()]
+    : realMonthTransactions;
 
   const totalIncome = monthlyTransactions
     .filter(t => t.type === 'income')
